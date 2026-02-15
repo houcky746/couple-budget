@@ -126,6 +126,7 @@ const I = {
   wallet: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="M2 9h20M8 15h2M14 15h2"/></svg>,
   settings: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
   trash: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>,
+  edit: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
   chk: <svg width="13" height="13" fill="none" stroke="#fff" strokeWidth="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>,
   aL: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>,
   aR: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>,
@@ -135,7 +136,7 @@ const I = {
 };
 
 // ─── Reusable ───────────────────────────────────────────────
-const Card = ({ children, style }) => <div style={{ background: T.card, borderRadius: T.radius, boxShadow: T.shadow, padding: "18px", marginBottom: "14px", ...style }}>{children}</div>;
+const Card = ({ children, style, className }) => <div className={className} style={{ background: T.card, borderRadius: T.radius, boxShadow: T.shadow, padding: "18px", marginBottom: "14px", ...style }}>{children}</div>;
 const Chip = ({ sel, onClick, children }) => <button onClick={onClick} style={{ padding: "7px 15px", borderRadius: "20px", border: `1.5px solid ${sel ? T.primary : T.border}`, background: sel ? T.primaryLight : "transparent", color: sel ? T.primary : T.text, fontWeight: 600, fontSize: "13px", cursor: "pointer", whiteSpace: "nowrap" }}>{children}</button>;
 const Tog = ({ on, onChange, label, color }) => (
   <button onClick={onChange} style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "13px 16px", borderRadius: "12px", border: `2px solid ${on ? (color || T.shared) : T.border}`, background: on ? (color === T.inc ? "#ecfdf5" : color === T.warn ? "#fffbeb" : "#f3e8ff") : "transparent", cursor: "pointer", marginBottom: "12px" }}>
@@ -193,6 +194,16 @@ const ResponsiveStyles = () => (
     input, textarea, select {
       font-size: 16px !important;
     }
+
+    /* Mobile safe area for bottom nav (iPhone notch etc) */
+    .ml-nav {
+      padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    }
+
+    /* Ensure touch targets are at least 44px */
+    .ml-nav button {
+      min-height: 44px;
+    }
   `}</style>
 );
 
@@ -231,6 +242,11 @@ function MoneyLogApp({ initialData, onDataChange }) {
   const [investRecForm, setInvestRecForm] = useState({ amount: "", date: "", memo: "" });
   const [expandedLoan, setExpandedLoan] = useState(null);
   const [expandedInvest, setExpandedInvest] = useState(null);
+
+  // ─── Edit Transaction State ─────────────────────────────
+  const [editingTx, setEditingTx] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [editCdForm, setEditCdForm] = useState({ name: "", amount: "" });
 
   // Auto-save: debounced
   const saveTimer = useRef(null);
@@ -285,6 +301,50 @@ function MoneyLogApp({ initialData, onDataChange }) {
   const addCd = () => { if (!cdForm.name || !cdForm.amount) return; setForm(f => ({ ...f, cardDetails: [...f.cardDetails, { name: cdForm.name, amount: Number(cdForm.amount) }] })); setCdForm({ name: "", amount: "" }); };
   const rmCd = (i) => setForm(f => ({ ...f, cardDetails: f.cardDetails.filter((_, j) => j !== i) }));
 
+  // ─── Edit Transaction ─────────────────────────────────
+  const openEditTx = (tx) => {
+    setEditForm({
+      type: tx.type,
+      amount: String(tx.amount),
+      category: tx.category,
+      memo: tx.memo || "",
+      person: tx.person,
+      date: tx.date,
+      isCard: tx.isCard || false,
+      cardDetails: tx.cardDetails ? [...tx.cardDetails] : [],
+      installment: tx.installment ? { ...tx.installment } : null,
+    });
+    setEditCdForm({ name: "", amount: "" });
+    setEditingTx(tx);
+  };
+
+  const saveEditTx = () => {
+    if (!editForm.amount || Number(editForm.amount) <= 0) return;
+    setTransactions(p => p.map(t =>
+      t.id === editingTx.id ? {
+        ...t,
+        type: editForm.type,
+        amount: Number(editForm.amount),
+        category: editForm.category,
+        memo: editForm.memo,
+        person: editForm.person,
+        date: editForm.date,
+        isCard: editForm.isCard,
+        cardDetails: editForm.cardDetails,
+        installment: editForm.installment,
+      } : t
+    ));
+    setEditingTx(null);
+    setEditForm(null);
+  };
+
+  const addEditCd = () => {
+    if (!editCdForm.name || !editCdForm.amount) return;
+    setEditForm(f => ({ ...f, cardDetails: [...f.cardDetails, { name: editCdForm.name, amount: Number(editCdForm.amount) }] }));
+    setEditCdForm({ name: "", amount: "" });
+  };
+  const rmEditCd = (i) => setEditForm(f => ({ ...f, cardDetails: f.cardDetails.filter((_, j) => j !== i) }));
+
   const addFixed = () => { if (!fixForm.name || !fixForm.amount) return; setFixedList(p => [...p, { id: id(), name: fixForm.name, amount: Number(fixForm.amount), person: fixForm.person, category: fixForm.category, deposited: false }]); setFixForm({ name: "", amount: "", person: "p1", category: "주거" }); };
   const rmFixed = (fid) => setFixedList(p => p.filter(f => f.id !== fid));
   const toggleDeposited = (fid) => setFixedList(p => p.map(f => f.id === fid ? { ...f, deposited: !f.deposited } : f));
@@ -304,9 +364,9 @@ function MoneyLogApp({ initialData, onDataChange }) {
   // ─── Render helpers (called as functions, NOT as <Components />) ────
   const renderMonthSel = () => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", marginBottom: "18px" }}>
-      <button onClick={prevM} style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: T.sub }}>{I.aL}</button>
+      <button onClick={prevM} style={{ background: "none", border: "none", cursor: "pointer", padding: "8px", color: T.sub, minWidth: "44px", minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.aL}</button>
       <div style={{ fontSize: "16px", fontWeight: 700, minWidth: "110px", textAlign: "center" }}>{year}년 {month}월</div>
-      <button onClick={nextM} style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: T.sub }}>{I.aR}</button>
+      <button onClick={nextM} style={{ background: "none", border: "none", cursor: "pointer", padding: "8px", color: T.sub, minWidth: "44px", minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.aR}</button>
     </div>
   );
 
@@ -318,7 +378,11 @@ function MoneyLogApp({ initialData, onDataChange }) {
           <div style={{ width: "34px", height: "34px", borderRadius: "10px", background: t.type === "income" ? "#ecfdf5" : "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", flexShrink: 0 }}>
             {t.type === "income" ? "💰" : catEmoji(t.category)}
           </div>
-          <div style={{ flex: 1, minWidth: 0, cursor: (t.isCard || t.installment) ? "pointer" : "default" }} onClick={() => (t.isCard || t.installment) && setExpandedCard(exp ? null : t.id)}>
+          <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => {
+            if (t.isFixed) return;
+            if (t.isCard || t.installment) { setExpandedCard(exp ? null : t.id); }
+            else { openEditTx(t); }
+          }}>
             <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
               <span style={{ fontSize: "13px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.memo || t.category}</span>
               {t.person === "shared" && <span style={{ fontSize: "9px", background: "#f3e8ff", color: T.shared, padding: "1px 5px", borderRadius: "5px", fontWeight: 600 }}>공동</span>}
@@ -331,7 +395,10 @@ function MoneyLogApp({ initialData, onDataChange }) {
           </div>
           <div style={{ fontSize: "13px", fontWeight: 700, color: t.type === "income" ? T.inc : T.exp, flexShrink: 0 }}>{t.type === "income" ? "+" : "-"}{fmt(t.amount)}</div>
           {!compact && !t.isFixed && (
-            <button onClick={() => delTx(t.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "3px", flexShrink: 0 }}>{I.trash}</button>
+            <div style={{ display: "flex", gap: "2px", flexShrink: 0 }}>
+              <button onClick={() => openEditTx(t)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: "4px", minWidth: "32px", minHeight: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.edit}</button>
+              <button onClick={() => delTx(t.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "4px", minWidth: "32px", minHeight: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.trash}</button>
+            </div>
           )}
         </div>
         {exp && t.isCard && t.cardDetails.length > 0 && (
@@ -374,7 +441,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
             <div style={{ fontSize: "14px", fontWeight: 700 }}>고정 지출</div>
-            <button onClick={() => setShowFixedSetup(true)} style={{ background: "none", border: "none", color: T.primary, fontSize: "12px", cursor: "pointer", fontWeight: 600 }}>편집 →</button>
+            <button onClick={() => setShowFixedSetup(true)} style={{ background: "none", border: "none", color: T.primary, fontSize: "12px", cursor: "pointer", fontWeight: 600, padding: "4px 8px", minHeight: "32px" }}>편집 →</button>
           </div>
           {fixedList.map((f, i) => (
             <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 0", borderBottom: i < fixedList.length - 1 ? `1px solid ${T.border}` : "none" }}>
@@ -384,8 +451,8 @@ function MoneyLogApp({ initialData, onDataChange }) {
                 <div style={{ fontSize: "10px", color: T.sub }}>{f.category}</div>
               </div>
               <span style={{ fontSize: "10px", color: f.person === "shared" ? T.shared : T.sub, background: f.person === "shared" ? "#f3e8ff" : "#f1f5f9", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, flexShrink: 0 }}>{gn(f.person)}</span>
-              <span style={{ fontSize: "13px", fontWeight: 700, minWidth: "80px", textAlign: "right", flexShrink: 0 }}>{fmt(f.amount)}</span>
-              <button onClick={() => toggleDeposited(f.id)} style={{ width: "26px", height: "26px", borderRadius: "7px", border: `2px solid ${f.deposited ? T.inc : "#cbd5e1"}`, background: f.deposited ? T.inc : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }} title={f.deposited ? "입금완료" : "미입금"}>
+              <span style={{ fontSize: "13px", fontWeight: 700, minWidth: "70px", textAlign: "right", flexShrink: 0 }}>{fmt(f.amount)}</span>
+              <button onClick={() => toggleDeposited(f.id)} style={{ width: "30px", height: "30px", borderRadius: "7px", border: `2px solid ${f.deposited ? T.inc : "#cbd5e1"}`, background: f.deposited ? T.inc : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }} title={f.deposited ? "입금완료" : "미입금"}>
                 {f.deposited && I.chk}
               </button>
             </div>
@@ -396,7 +463,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
             <div style={{ fontSize: "14px", fontWeight: 700 }}>최근 내역</div>
-            <button onClick={() => setTab("list")} style={{ background: "none", border: "none", color: T.primary, fontSize: "12px", cursor: "pointer", fontWeight: 600 }}>전체보기 →</button>
+            <button onClick={() => setTab("list")} style={{ background: "none", border: "none", color: T.primary, fontSize: "12px", cursor: "pointer", fontWeight: 600, padding: "4px 8px", minHeight: "32px" }}>전체보기 →</button>
           </div>
           {monthTx.slice(0, 4).map(t => renderTxRow(t, true))}
           {monthTx.length === 0 && <div style={{ textAlign: "center", color: T.sub, padding: "14px", fontSize: "13px" }}>내역 없음</div>}
@@ -434,14 +501,14 @@ function MoneyLogApp({ initialData, onDataChange }) {
             {form.cardDetails.map((d, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid #e0f2fe` }}>
                 <span style={{ fontSize: "13px" }}>{d.name}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}><span style={{ fontSize: "13px", fontWeight: 600 }}>{fmt(d.amount)}</span><button onClick={() => rmCd(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "12px" }}>✕</button></div>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}><span style={{ fontSize: "13px", fontWeight: 600 }}>{fmt(d.amount)}</span><button onClick={() => rmCd(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "12px", padding: "4px", minWidth: "32px", minHeight: "32px" }}>✕</button></div>
               </div>
             ))}
             {form.cardDetails.length > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 2px", fontWeight: 700, fontSize: "13px", borderTop: `1.5px solid #7dd3fc`, marginTop: "3px" }}><span>소계</span><span style={{ color: T.exp }}>{fmt(form.cardDetails.reduce((s, d) => s + d.amount, 0))}</span></div>}
             <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
               <input placeholder="항목명" value={cdForm.name} onChange={e => setCdForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
               <input type="number" inputMode="numeric" placeholder="금액" value={cdForm.amount} onChange={e => setCdForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "90px", padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
-              <button onClick={addCd} style={{ padding: "8px 12px", borderRadius: "8px", border: "none", background: "#0284c7", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>추가</button>
+              <button onClick={addCd} style={{ padding: "8px 14px", borderRadius: "8px", border: "none", background: "#0284c7", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", minHeight: "40px" }}>추가</button>
             </div>
           </Card>
         )}
@@ -449,7 +516,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
         <label style={{ fontSize: "13px", color: T.sub, fontWeight: 600, display: "block", marginBottom: "7px" }}>누가?</label>
         <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
           {[{ k: "p1", emoji: "🙋" }, { k: "p2", emoji: "💑" }, { k: "shared", emoji: "👫" }].map(({ k, emoji }) => (
-            <button key={k} onClick={() => setForm(f => ({ ...f, person: k }))} style={{ flex: 1, padding: "11px", borderRadius: "12px", border: `2px solid ${form.person === k ? (k === "shared" ? T.shared : T.primary) : T.border}`, background: form.person === k ? (k === "shared" ? "#f3e8ff" : T.primaryLight) : "transparent", color: form.person === k ? (k === "shared" ? T.shared : T.primary) : T.text, fontWeight: 600, fontSize: "14px", cursor: "pointer" }}>{emoji} {gn(k)}</button>
+            <button key={k} onClick={() => setForm(f => ({ ...f, person: k }))} style={{ flex: 1, padding: "11px 4px", borderRadius: "12px", border: `2px solid ${form.person === k ? (k === "shared" ? T.shared : T.primary) : T.border}`, background: form.person === k ? (k === "shared" ? "#f3e8ff" : T.primaryLight) : "transparent", color: form.person === k ? (k === "shared" ? T.shared : T.primary) : T.text, fontWeight: 600, fontSize: "13px", cursor: "pointer", minHeight: "44px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emoji} {gn(k)}</button>
           ))}
         </div>
         {form.type === "expense" && !form.isCard && <Tog on={showInstallment} onChange={() => setShowInstallment(!showInstallment)} label="할부 결제" color={T.warn} />}
@@ -594,7 +661,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
                   </div>
                   <div style={{ fontSize: "12px", color: T.sub, marginTop: "2px" }}>총 {fmt(l.totalAmount)}</div>
                 </div>
-                <button onClick={() => delLoan(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1" }}>{I.trash}</button>
+                <button onClick={() => delLoan(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "4px", minWidth: "32px", minHeight: "32px" }}>{I.trash}</button>
               </div>
               <div style={{ background: "#e2e8f0", borderRadius: "8px", height: "8px", marginBottom: "6px", overflow: "hidden" }}>
                 <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${T.loan}, #38bdf8)`, borderRadius: "8px" }} />
@@ -611,7 +678,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
                       <span style={{ fontSize: "12px", color: T.sub, minWidth: "70px" }}>{p.date}</span>
                       <span style={{ fontSize: "12px", flex: 1, color: T.sub }}>{p.memo}</span>
                       <span style={{ fontSize: "13px", fontWeight: 700, color: T.loan }}>{fmt(p.amount)}</span>
-                      <button onClick={() => delPayment(l.id, p.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "2px" }}>{I.trash}</button>
+                      <button onClick={() => delPayment(l.id, p.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "4px", minWidth: "32px", minHeight: "32px" }}>{I.trash}</button>
                     </div>
                   ))}
                   <div style={{ marginTop: "10px", padding: "12px", background: "#f0f9ff", borderRadius: "10px" }}>
@@ -622,7 +689,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
                     </div>
                     <div style={{ display: "flex", gap: "6px" }}>
                       <input placeholder="메모" value={paymentForm.memo} onChange={e => setPaymentForm(f => ({ ...f, memo: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
-                      <button onClick={() => addPayment(l.id)} style={{ padding: "8px 14px", borderRadius: "8px", border: "none", background: T.loan, color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>추가</button>
+                      <button onClick={() => addPayment(l.id)} style={{ padding: "8px 14px", borderRadius: "8px", border: "none", background: T.loan, color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", minHeight: "40px" }}>추가</button>
                     </div>
                   </div>
                 </div>
@@ -636,7 +703,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
             <Inp label="대출명" placeholder="전세자금 대출" value={loanForm.name} onChange={e => setLoanForm(f => ({ ...f, name: e.target.value }))} />
             <label style={{ fontSize: "13px", color: T.sub, fontWeight: 600, display: "block", marginBottom: "7px" }}>누구?</label>
             <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
-              {["p1", "p2"].map(p => <button key={p} onClick={() => setLoanForm(f => ({ ...f, person: p }))} style={{ flex: 1, padding: "10px", borderRadius: "12px", border: `2px solid ${loanForm.person === p ? T.loan : T.border}`, background: loanForm.person === p ? "#e0f2fe" : "transparent", color: loanForm.person === p ? T.loan : T.text, fontWeight: 600, cursor: "pointer" }}>{gn(p)}</button>)}
+              {["p1", "p2"].map(p => <button key={p} onClick={() => setLoanForm(f => ({ ...f, person: p }))} style={{ flex: 1, padding: "10px", borderRadius: "12px", border: `2px solid ${loanForm.person === p ? T.loan : T.border}`, background: loanForm.person === p ? "#e0f2fe" : "transparent", color: loanForm.person === p ? T.loan : T.text, fontWeight: 600, cursor: "pointer", minHeight: "44px" }}>{gn(p)}</button>)}
             </div>
             <Inp label="대출 총액" type="number" inputMode="numeric" placeholder="100,000,000" value={loanForm.totalAmount} onChange={e => setLoanForm(f => ({ ...f, totalAmount: e.target.value }))} />
             <div style={{ display: "flex", gap: "8px" }}>
@@ -673,7 +740,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <span style={{ fontSize: "15px", fontWeight: 700, color: T.invest }}>{fmt(total)}</span>
-                  <button onClick={() => delInvest(inv.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1" }}>{I.trash}</button>
+                  <button onClick={() => delInvest(inv.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "4px", minWidth: "32px", minHeight: "32px" }}>{I.trash}</button>
                 </div>
               </div>
               <div style={{ fontSize: "12px", color: T.sub }}>{inv.records.length}건 투자</div>
@@ -685,7 +752,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
                       <span style={{ fontSize: "12px", color: T.sub, minWidth: "70px" }}>{r.date}</span>
                       <span style={{ fontSize: "12px", flex: 1, color: T.sub }}>{r.memo}</span>
                       <span style={{ fontSize: "13px", fontWeight: 700, color: T.invest }}>{fmt(r.amount)}</span>
-                      <button onClick={() => delInvestRec(inv.id, r.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "2px" }}>{I.trash}</button>
+                      <button onClick={() => delInvestRec(inv.id, r.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "4px", minWidth: "32px", minHeight: "32px" }}>{I.trash}</button>
                     </div>
                   ))}
                   <div style={{ marginTop: "8px", padding: "12px", background: "#f5f3ff", borderRadius: "10px" }}>
@@ -696,7 +763,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
                     </div>
                     <div style={{ display: "flex", gap: "6px" }}>
                       <input placeholder="메모" value={investRecForm.memo} onChange={e => setInvestRecForm(f => ({ ...f, memo: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #c4b5fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
-                      <button onClick={() => addInvestRec(inv.id)} style={{ padding: "8px 14px", borderRadius: "8px", border: "none", background: T.invest, color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>추가</button>
+                      <button onClick={() => addInvestRec(inv.id)} style={{ padding: "8px 14px", borderRadius: "8px", border: "none", background: T.invest, color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", minHeight: "40px" }}>추가</button>
                     </div>
                   </div>
                 </div>
@@ -710,7 +777,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
             <Inp label="투자명" placeholder="주식, 적금, 코인 등" value={investForm.name} onChange={e => setInvestForm(f => ({ ...f, name: e.target.value }))} />
             <label style={{ fontSize: "13px", color: T.sub, fontWeight: 600, display: "block", marginBottom: "7px" }}>누구?</label>
             <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
-              {["p1", "p2"].map(p => <button key={p} onClick={() => setInvestForm(f => ({ ...f, person: p }))} style={{ flex: 1, padding: "10px", borderRadius: "12px", border: `2px solid ${investForm.person === p ? T.invest : T.border}`, background: investForm.person === p ? "#f5f3ff" : "transparent", color: investForm.person === p ? T.invest : T.text, fontWeight: 600, cursor: "pointer" }}>{gn(p)}</button>)}
+              {["p1", "p2"].map(p => <button key={p} onClick={() => setInvestForm(f => ({ ...f, person: p }))} style={{ flex: 1, padding: "10px", borderRadius: "12px", border: `2px solid ${investForm.person === p ? T.invest : T.border}`, background: investForm.person === p ? "#f5f3ff" : "transparent", color: investForm.person === p ? T.invest : T.text, fontWeight: 600, cursor: "pointer", minHeight: "44px" }}>{gn(p)}</button>)}
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
               <Btn outline onClick={() => setShowAddInvest(false)} style={{ flex: 1 }}>취소</Btn>
@@ -718,6 +785,87 @@ function MoneyLogApp({ initialData, onDataChange }) {
             </div>
           </Card>
         )}
+      </div>
+    );
+  };
+
+  // ─── Edit Transaction Modal ─────────────────────────────
+  const renderEditModal = () => {
+    if (!editingTx || !editForm) return null;
+    const cats = editForm.type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={(e) => { if (e.target === e.currentTarget) { setEditingTx(null); setEditForm(null); } }}>
+        <div style={{ width: "100%", maxWidth: "680px", background: T.card, borderRadius: "20px 20px 0 0", padding: "22px 18px", maxHeight: "85vh", overflowY: "auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <div style={{ fontSize: "16px", fontWeight: 700 }}>내역 수정</div>
+            <button onClick={() => { setEditingTx(null); setEditForm(null); }} style={{ background: "none", border: "none", fontSize: "20px", color: T.sub, cursor: "pointer", padding: "4px 8px", minWidth: "32px", minHeight: "32px" }}>✕</button>
+          </div>
+
+          {/* Type toggle */}
+          <div style={{ display: "flex", background: "#f1f5f9", borderRadius: "12px", padding: "4px", marginBottom: "18px" }}>
+            {[{ k: "expense", l: "지출" }, { k: "income", l: "수입" }].map(({ k, l }) => (
+              <button key={k} onClick={() => setEditForm(f => ({ ...f, type: k, category: k === "income" ? "급여" : "식비", isCard: false, cardDetails: [] }))}
+                style={{ flex: 1, padding: "9px", borderRadius: "10px", border: "none", cursor: "pointer", background: editForm.type === k ? (k === "expense" ? T.exp : T.inc) : "transparent", color: editForm.type === k ? "#fff" : T.sub, fontWeight: 600, fontSize: "14px" }}>{l}</button>
+            ))}
+          </div>
+
+          {/* Amount */}
+          <div style={{ marginBottom: "14px" }}>
+            <label style={{ fontSize: "13px", color: T.sub, fontWeight: 600, display: "block", marginBottom: "5px" }}>금액</label>
+            <div style={{ position: "relative" }}>
+              <input type="number" inputMode="numeric" placeholder="0" value={editForm.amount} onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "100%", padding: "13px 48px 13px 14px", border: `2px solid ${T.border}`, borderRadius: "12px", fontSize: "18px", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
+              <span style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", color: T.sub, fontWeight: 600 }}>원</span>
+            </div>
+          </div>
+
+          {/* Category */}
+          <label style={{ fontSize: "13px", color: T.sub, fontWeight: 600, display: "block", marginBottom: "7px" }}>카테고리</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "7px", marginBottom: "14px" }}>
+            {cats.map(c => <Chip key={c} sel={editForm.category === c} onClick={() => setEditForm(f => ({ ...f, category: c, isCard: c === "카드값" }))}>{catEmoji(c)} {c}</Chip>)}
+          </div>
+
+          {/* Card details (if card category) */}
+          {editForm.isCard && (
+            <Card style={{ background: "#f0f9ff", border: `1.5px solid #bae6fd`, padding: "14px", marginBottom: "14px" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#0369a1", marginBottom: "10px" }}>💳 카드값 세부내역</div>
+              {editForm.cardDetails.map((d, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid #e0f2fe` }}>
+                  <span style={{ fontSize: "13px" }}>{d.name}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "13px", fontWeight: 600 }}>{fmt(d.amount)}</span>
+                    <button onClick={() => rmEditCd(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "12px", padding: "4px", minWidth: "32px", minHeight: "32px" }}>✕</button>
+                  </div>
+                </div>
+              ))}
+              {editForm.cardDetails.length > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 2px", fontWeight: 700, fontSize: "13px", borderTop: `1.5px solid #7dd3fc`, marginTop: "3px" }}><span>소계</span><span style={{ color: T.exp }}>{fmt(editForm.cardDetails.reduce((s, d) => s + d.amount, 0))}</span></div>}
+              <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
+                <input placeholder="항목명" value={editCdForm.name} onChange={e => setEditCdForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
+                <input type="number" inputMode="numeric" placeholder="금액" value={editCdForm.amount} onChange={e => setEditCdForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "90px", padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
+                <button onClick={addEditCd} style={{ padding: "8px 14px", borderRadius: "8px", border: "none", background: "#0284c7", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", minHeight: "40px" }}>추가</button>
+              </div>
+            </Card>
+          )}
+
+          {/* Memo */}
+          <Inp label="메모" placeholder="간단한 메모" value={editForm.memo} onChange={e => setEditForm(f => ({ ...f, memo: e.target.value }))} />
+
+          {/* Person */}
+          <label style={{ fontSize: "13px", color: T.sub, fontWeight: 600, display: "block", marginBottom: "7px" }}>누가?</label>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
+            {[{ k: "p1", emoji: "🙋" }, { k: "p2", emoji: "💑" }, { k: "shared", emoji: "👫" }].map(({ k, emoji }) => (
+              <button key={k} onClick={() => setEditForm(f => ({ ...f, person: k }))} style={{ flex: 1, padding: "11px 4px", borderRadius: "12px", border: `2px solid ${editForm.person === k ? (k === "shared" ? T.shared : T.primary) : T.border}`, background: editForm.person === k ? (k === "shared" ? "#f3e8ff" : T.primaryLight) : "transparent", color: editForm.person === k ? (k === "shared" ? T.shared : T.primary) : T.text, fontWeight: 600, fontSize: "13px", cursor: "pointer", minHeight: "44px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emoji} {gn(k)}</button>
+            ))}
+          </div>
+
+          {/* Date */}
+          <Inp label="날짜" type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} />
+
+          {/* Buttons */}
+          <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+            <Btn outline onClick={() => { setEditingTx(null); setEditForm(null); }} style={{ flex: 1 }}>취소</Btn>
+            <Btn onClick={saveEditTx} style={{ flex: 1 }}>수정 완료</Btn>
+          </div>
+        </div>
       </div>
     );
   };
@@ -739,7 +887,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
               </div>
               <span style={{ fontSize: "10px", color: f.person === "shared" ? T.shared : T.sub, background: f.person === "shared" ? "#f3e8ff" : "#f1f5f9", padding: "2px 6px", borderRadius: "4px", fontWeight: 600 }}>{gn(f.person)}</span>
               <span style={{ fontSize: "13px", fontWeight: 700 }}>{fmt(f.amount)}</span>
-              <button onClick={() => rmFixed(f.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1" }}>{I.trash}</button>
+              <button onClick={() => rmFixed(f.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "4px", minWidth: "32px", minHeight: "32px" }}>{I.trash}</button>
             </div>
           ))}
           {fixedList.length > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", fontWeight: 700, borderTop: `2px solid ${T.border}`, marginTop: "4px" }}><span>합계</span><span style={{ color: T.exp }}>{fmt(total)}</span></div>}
@@ -766,7 +914,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
                 ))}
               </div>
             </div>
-            <button onClick={addFixed} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "none", background: T.primary, color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>추가</button>
+            <button onClick={addFixed} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "none", background: T.primary, color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", minHeight: "44px" }}>추가</button>
           </div>
           <div style={{ marginTop: "14px" }}><Btn onClick={() => setShowFixedSetup(false)}>완료</Btn></div>
         </div>
@@ -801,7 +949,7 @@ function MoneyLogApp({ initialData, onDataChange }) {
           <div className="ml-header-sub" style={{ opacity: 0.8, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 600 }}>moneylog</div>
           <div className="ml-header-title" style={{ fontWeight: 800, marginTop: "1px" }}>{tabTitle[tab]}</div>
         </div>
-        <button onClick={() => { setEditNames({ ...names }); setShowSettings(true); }} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "10px", padding: "7px", cursor: "pointer", color: "#fff" }}>{I.settings}</button>
+        <button onClick={() => { setEditNames({ ...names }); setShowSettings(true); }} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "10px", padding: "8px", cursor: "pointer", color: "#fff", minWidth: "36px", minHeight: "36px", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.settings}</button>
       </div>
       <div style={{ flex: 1, padding: "14px 14px 88px", overflowY: "auto" }}>
         {tab === "home" && renderHome()}
@@ -812,11 +960,12 @@ function MoneyLogApp({ initialData, onDataChange }) {
       </div>
       <div className="ml-nav" style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)", borderTop: `1px solid ${T.border}`, display: "flex", padding: "4px 4px 8px", zIndex: 10 }}>
         {[{ id: "home", icon: I.home, l: "홈" }, { id: "add", icon: I.plus, l: "추가" }, { id: "list", icon: I.list, l: "내역" }, { id: "stats", icon: I.chart, l: "통계" }, { id: "wallet", icon: I.wallet, l: "대출/투자" }].map(({ id: tid, icon, l }) => (
-          <button key={tid} onClick={() => setTab(tid)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", padding: "5px 0", background: "none", border: "none", cursor: "pointer", color: tab === tid ? T.primary : T.sub, fontWeight: tab === tid ? 700 : 400, fontSize: "10px" }}>{icon}{l}</button>
+          <button key={tid} onClick={() => setTab(tid)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", padding: "6px 0", background: "none", border: "none", cursor: "pointer", color: tab === tid ? T.primary : T.sub, fontWeight: tab === tid ? 700 : 400, fontSize: "10px" }}>{icon}{l}</button>
         ))}
       </div>
       {renderSettingsModal()}
       {renderFixedModal()}
+      {renderEditModal()}
     </div>
   );
 }
