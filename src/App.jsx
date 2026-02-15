@@ -9,18 +9,6 @@ function PinScreen({ onSuccess }) {
   const [shake, setShake] = useState(false);
   const correctPin = import.meta.env.VITE_ACCESS_PIN || "1234";
 
-  const handleSubmit = () => {
-    if (pin === correctPin) {
-      sessionStorage.setItem("budget_auth", "true");
-      onSuccess();
-    } else {
-      setError(true);
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      setPin("");
-    }
-  };
-
   const handleKey = (num) => {
     if (pin.length < 6) {
       const newPin = pin + num;
@@ -51,7 +39,7 @@ function PinScreen({ onSuccess }) {
       padding: "20px",
     }}>
       <div style={{ fontSize: "40px", marginBottom: "8px" }}>💜</div>
-      <div style={{ color: "#fff", fontSize: "20px", fontWeight: 800, marginBottom: "6px" }}>커플 가계부</div>
+      <div style={{ color: "#fff", fontSize: "20px", fontWeight: 800, marginBottom: "6px" }}>머니로그</div>
       <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "13px", marginBottom: "30px" }}>인증번호를 입력하세요</div>
 
       <div style={{
@@ -107,7 +95,7 @@ function LoadingScreen() {
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     }}>
       <div style={{ fontSize: "40px", marginBottom: "12px" }}>💜</div>
-      <div style={{ color: "#fff", fontSize: "18px", fontWeight: 700, marginBottom: "8px" }}>커플 가계부</div>
+      <div style={{ color: "#fff", fontSize: "18px", fontWeight: 700, marginBottom: "8px" }}>머니로그</div>
       <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "13px" }}>데이터를 불러오는 중...</div>
       <div style={{ marginTop: "20px", width: "40px", height: "40px", border: "3px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -130,7 +118,6 @@ const T = {
   radius: "16px", shadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
 };
 
-// ─── Icons ──────────────────────────────────────────────────
 const I = {
   home: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/></svg>,
   plus: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
@@ -159,7 +146,7 @@ const Tog = ({ on, onChange, label, color }) => (
 const Inp = ({ label, ...p }) => (
   <div style={{ marginBottom: "14px" }}>
     {label && <label style={{ fontSize: "13px", color: T.sub, fontWeight: 600, display: "block", marginBottom: "5px" }}>{label}</label>}
-    <input {...p} style={{ width: "100%", padding: "11px 14px", border: `2px solid ${T.border}`, borderRadius: "12px", fontSize: "14px", outline: "none", boxSizing: "border-box", ...p.style }} />
+    <input {...p} style={{ width: "100%", padding: "11px 14px", border: `2px solid ${T.border}`, borderRadius: "12px", fontSize: "16px", outline: "none", boxSizing: "border-box", ...p.style }} />
   </div>
 );
 const Btn = ({ children, onClick, color, outline, style: s }) => (
@@ -176,8 +163,41 @@ const DEFAULT_DATA = {
   nid: 100,
 };
 
+// ─── Responsive Styles ──────────────────────────────────────
+const ResponsiveStyles = () => (
+  <style>{`
+    .ml-app { max-width: 420px; }
+    .ml-nav { max-width: 420px; }
+    .ml-header-sub { font-size: 10px; }
+    .ml-header-title { font-size: 17px; }
+    .ml-summary-grid { display: flex; gap: 10px; margin-bottom: 14px; }
+    .ml-home-grid { display: block; }
+
+    @media (min-width: 768px) {
+      body { background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 50%, #ede9fe 100%); }
+      .ml-app { max-width: 680px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border-radius: 0 0 24px 24px; }
+      .ml-nav { max-width: 680px; border-radius: 0 0 20px 20px; }
+      .ml-header-sub { font-size: 11px; }
+      .ml-header-title { font-size: 19px; }
+      .ml-home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .ml-home-grid > * { margin-bottom: 0 !important; }
+      .ml-home-full { grid-column: 1 / -1; }
+    }
+
+    @media (min-width: 1024px) {
+      .ml-app { max-width: 800px; }
+      .ml-nav { max-width: 800px; }
+      .ml-header-title { font-size: 20px; }
+    }
+
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+  `}</style>
+);
+
 // ═══════════════════════════════════════════════════════════════
-function CoupleBudgetApp({ initialData, onDataChange }) {
+function MoneyLogApp({ initialData, onDataChange }) {
   const [tab, setTab] = useState("home");
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -232,17 +252,9 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
   const monthTx = useMemo(() => transactions.filter(t => t.date.startsWith(mk)), [transactions, mk]);
 
   const fixedAsTx = useMemo(() => fixedList.map(f => ({
-    id: `fixed-${f.id}`,
-    type: "expense",
-    amount: f.amount,
-    category: f.category,
-    memo: f.name,
-    person: f.person,
-    date: `${mk}-01`,
-    isCard: false,
-    cardDetails: [],
-    installment: null,
-    isFixed: true,
+    id: `fixed-${f.id}`, type: "expense", amount: f.amount, category: f.category,
+    memo: f.name, person: f.person, date: `${mk}-01`,
+    isCard: false, cardDetails: [], installment: null, isFixed: true,
   })), [fixedList, mk]);
 
   const stats = useMemo(() => {
@@ -253,14 +265,13 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
     const totalExp = f.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
     const sharedExp = allExpenses.filter(t => t.type === "expense" && t.person === "shared").reduce((s, t) => s + t.amount, 0);
     const byCat = {};
-    const forCat = allExpenses.filter(t => t.type === "expense" && t.person !== "shared");
-    forCat.forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + t.amount; });
+    allExpenses.filter(t => t.type === "expense" && t.person !== "shared").forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + t.amount; });
     const pieData = Object.entries(byCat).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
     const fixedTotal = fixedList.reduce((s, f) => s + f.amount, 0);
     return { totalInc, totalExp, sharedExp, pieData, fixedTotal, balance: totalInc - totalExp };
   }, [monthTx, fixedAsTx, filterPerson, fixedList]);
 
-  // ─── Transaction CRUD ──────────────────────────────────
+  // ─── CRUD ──────────────────────────────────────────────
   const addTx = () => {
     if (!form.amount || Number(form.amount) <= 0) return;
     const tx = { ...form, id: id(), amount: Number(form.amount),
@@ -290,8 +301,8 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
 
   const saveNames = () => { setNames({ ...editNames }); setShowSettings(false); };
 
-  // ─── Month Selector ────────────────────────────────────
-  const MonthSel = () => (
+  // ─── Render helpers (called as functions, NOT as <Components />) ────
+  const renderMonthSel = () => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", marginBottom: "18px" }}>
       <button onClick={prevM} style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: T.sub }}>{I.aL}</button>
       <div style={{ fontSize: "16px", fontWeight: 700, minWidth: "110px", textAlign: "center" }}>{year}년 {month}월</div>
@@ -299,63 +310,10 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
     </div>
   );
 
-  // ─── HOME ──────────────────────────────────────────────
-  const HomeTab = () => (
-    <div>
-      <MonthSel />
-      <div style={{ textAlign: "center", marginBottom: "18px" }}>
-        <div style={{ fontSize: "26px", fontWeight: 800, color: stats.balance >= 0 ? T.inc : T.exp }}>{stats.balance >= 0 ? "+" : ""}{fmt(stats.balance)}</div>
-        <div style={{ fontSize: "12px", color: T.sub, marginTop: "2px" }}>이번 달 잔액</div>
-      </div>
-      <div style={{ display: "flex", gap: "10px", marginBottom: "14px" }}>
-        <Card style={{ flex: 1, textAlign: "center", padding: "12px" }}><div style={{ fontSize: "11px", color: T.sub, marginBottom: "3px" }}>수입</div><div style={{ fontSize: "16px", fontWeight: 700, color: T.inc }}>{fmt(stats.totalInc)}</div></Card>
-        <Card style={{ flex: 1, textAlign: "center", padding: "12px" }}><div style={{ fontSize: "11px", color: T.sub, marginBottom: "3px" }}>지출</div><div style={{ fontSize: "16px", fontWeight: 700, color: T.exp }}>{fmt(stats.totalExp)}</div></Card>
-      </div>
-
-      <Card style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px" }}>
-        <div style={{ width: "34px", height: "34px", borderRadius: "10px", background: "#f3e8ff", display: "flex", alignItems: "center", justifyContent: "center", color: T.shared }}>{I.shared}</div>
-        <div style={{ flex: 1 }}><div style={{ fontSize: "11px", color: T.sub }}>공동 지출</div><div style={{ fontSize: "15px", fontWeight: 700, color: T.shared }}>{fmt(stats.sharedExp)}</div></div>
-        <div style={{ fontSize: "11px", color: T.sub, textAlign: "right" }}>1인당<br/><span style={{ fontWeight: 600, color: T.text }}>{fmt(Math.round(stats.sharedExp / 2))}</span></div>
-      </Card>
-
-      <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-          <div style={{ fontSize: "14px", fontWeight: 700 }}>고정 지출</div>
-          <button onClick={() => setShowFixedSetup(true)} style={{ background: "none", border: "none", color: T.primary, fontSize: "12px", cursor: "pointer", fontWeight: 600 }}>편집 →</button>
-        </div>
-        {fixedList.map((f, i) => (
-          <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 0", borderBottom: i < fixedList.length - 1 ? `1px solid ${T.border}` : "none" }}>
-            <span style={{ fontSize: "14px", flexShrink: 0 }}>{catEmoji(f.category)}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: "13px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
-              <div style={{ fontSize: "10px", color: T.sub }}>{f.category}</div>
-            </div>
-            <span style={{ fontSize: "10px", color: f.person === "shared" ? T.shared : T.sub, background: f.person === "shared" ? "#f3e8ff" : "#f1f5f9", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, flexShrink: 0 }}>{gn(f.person)}</span>
-            <span style={{ fontSize: "13px", fontWeight: 700, minWidth: "80px", textAlign: "right", flexShrink: 0 }}>{fmt(f.amount)}</span>
-            <button onClick={() => toggleDeposited(f.id)} style={{ width: "26px", height: "26px", borderRadius: "7px", border: `2px solid ${f.deposited ? T.inc : "#cbd5e1"}`, background: f.deposited ? T.inc : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }} title={f.deposited ? "입금완료" : "미입금"}>
-              {f.deposited && I.chk}
-            </button>
-          </div>
-        ))}
-        {fixedList.length === 0 && <div style={{ textAlign: "center", color: T.sub, padding: "14px", fontSize: "13px" }}>고정 지출을 추가해보세요</div>}
-      </Card>
-
-      <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-          <div style={{ fontSize: "14px", fontWeight: 700 }}>최근 내역</div>
-          <button onClick={() => setTab("list")} style={{ background: "none", border: "none", color: T.primary, fontSize: "12px", cursor: "pointer", fontWeight: 600 }}>전체보기 →</button>
-        </div>
-        {monthTx.slice(0, 4).map(t => <TxRow key={t.id} t={t} compact />)}
-        {monthTx.length === 0 && <div style={{ textAlign: "center", color: T.sub, padding: "14px", fontSize: "13px" }}>내역 없음</div>}
-      </Card>
-    </div>
-  );
-
-  // ─── TxRow ─────────────────────────────────────────────
-  const TxRow = ({ t, compact }) => {
+  const renderTxRow = (t, compact) => {
     const exp = expandedCard === t.id;
     return (
-      <div>
+      <div key={t.id}>
         <div style={{ display: "flex", alignItems: "center", gap: "9px", padding: compact ? "9px 0" : "11px 0", borderBottom: `1px solid ${T.border}` }}>
           <div style={{ width: "34px", height: "34px", borderRadius: "10px", background: t.type === "income" ? "#ecfdf5" : "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", flexShrink: 0 }}>
             {t.type === "income" ? "💰" : catEmoji(t.category)}
@@ -373,9 +331,7 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
           </div>
           <div style={{ fontSize: "13px", fontWeight: 700, color: t.type === "income" ? T.inc : T.exp, flexShrink: 0 }}>{t.type === "income" ? "+" : "-"}{fmt(t.amount)}</div>
           {!compact && !t.isFixed && (
-            <div style={{ display: "flex", gap: "3px", flexShrink: 0 }}>
-              <button onClick={() => delTx(t.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "3px" }}>{I.trash}</button>
-            </div>
+            <button onClick={() => delTx(t.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", padding: "3px", flexShrink: 0 }}>{I.trash}</button>
           )}
         </div>
         {exp && t.isCard && t.cardDetails.length > 0 && (
@@ -395,8 +351,62 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
     );
   };
 
+  // ─── HOME ──────────────────────────────────────────────
+  const renderHome = () => (
+    <div>
+      {renderMonthSel()}
+      <div style={{ textAlign: "center", marginBottom: "18px" }}>
+        <div style={{ fontSize: "26px", fontWeight: 800, color: stats.balance >= 0 ? T.inc : T.exp }}>{stats.balance >= 0 ? "+" : ""}{fmt(stats.balance)}</div>
+        <div style={{ fontSize: "12px", color: T.sub, marginTop: "2px" }}>이번 달 잔액</div>
+      </div>
+      <div className="ml-summary-grid">
+        <Card style={{ flex: 1, textAlign: "center", padding: "12px" }}><div style={{ fontSize: "11px", color: T.sub, marginBottom: "3px" }}>수입</div><div style={{ fontSize: "16px", fontWeight: 700, color: T.inc }}>{fmt(stats.totalInc)}</div></Card>
+        <Card style={{ flex: 1, textAlign: "center", padding: "12px" }}><div style={{ fontSize: "11px", color: T.sub, marginBottom: "3px" }}>지출</div><div style={{ fontSize: "16px", fontWeight: 700, color: T.exp }}>{fmt(stats.totalExp)}</div></Card>
+      </div>
+
+      <div className="ml-home-grid">
+        <Card style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px" }} className="ml-home-full">
+          <div style={{ width: "34px", height: "34px", borderRadius: "10px", background: "#f3e8ff", display: "flex", alignItems: "center", justifyContent: "center", color: T.shared }}>{I.shared}</div>
+          <div style={{ flex: 1 }}><div style={{ fontSize: "11px", color: T.sub }}>공동 지출</div><div style={{ fontSize: "15px", fontWeight: 700, color: T.shared }}>{fmt(stats.sharedExp)}</div></div>
+          <div style={{ fontSize: "11px", color: T.sub, textAlign: "right" }}>1인당<br/><span style={{ fontWeight: 600, color: T.text }}>{fmt(Math.round(stats.sharedExp / 2))}</span></div>
+        </Card>
+
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+            <div style={{ fontSize: "14px", fontWeight: 700 }}>고정 지출</div>
+            <button onClick={() => setShowFixedSetup(true)} style={{ background: "none", border: "none", color: T.primary, fontSize: "12px", cursor: "pointer", fontWeight: 600 }}>편집 →</button>
+          </div>
+          {fixedList.map((f, i) => (
+            <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 0", borderBottom: i < fixedList.length - 1 ? `1px solid ${T.border}` : "none" }}>
+              <span style={{ fontSize: "14px", flexShrink: 0 }}>{catEmoji(f.category)}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "13px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
+                <div style={{ fontSize: "10px", color: T.sub }}>{f.category}</div>
+              </div>
+              <span style={{ fontSize: "10px", color: f.person === "shared" ? T.shared : T.sub, background: f.person === "shared" ? "#f3e8ff" : "#f1f5f9", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, flexShrink: 0 }}>{gn(f.person)}</span>
+              <span style={{ fontSize: "13px", fontWeight: 700, minWidth: "80px", textAlign: "right", flexShrink: 0 }}>{fmt(f.amount)}</span>
+              <button onClick={() => toggleDeposited(f.id)} style={{ width: "26px", height: "26px", borderRadius: "7px", border: `2px solid ${f.deposited ? T.inc : "#cbd5e1"}`, background: f.deposited ? T.inc : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }} title={f.deposited ? "입금완료" : "미입금"}>
+                {f.deposited && I.chk}
+              </button>
+            </div>
+          ))}
+          {fixedList.length === 0 && <div style={{ textAlign: "center", color: T.sub, padding: "14px", fontSize: "13px" }}>고정 지출을 추가해보세요</div>}
+        </Card>
+
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+            <div style={{ fontSize: "14px", fontWeight: 700 }}>최근 내역</div>
+            <button onClick={() => setTab("list")} style={{ background: "none", border: "none", color: T.primary, fontSize: "12px", cursor: "pointer", fontWeight: 600 }}>전체보기 →</button>
+          </div>
+          {monthTx.slice(0, 4).map(t => renderTxRow(t, true))}
+          {monthTx.length === 0 && <div style={{ textAlign: "center", color: T.sub, padding: "14px", fontSize: "13px" }}>내역 없음</div>}
+        </Card>
+      </div>
+    </div>
+  );
+
   // ─── ADD ───────────────────────────────────────────────
-  const AddTab = () => {
+  const renderAdd = () => {
     const cats = form.type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
     return (
       <div><Card>
@@ -410,7 +420,7 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
         <div style={{ marginBottom: "14px" }}>
           <label style={{ fontSize: "13px", color: T.sub, fontWeight: 600, display: "block", marginBottom: "5px" }}>금액</label>
           <div style={{ position: "relative" }}>
-            <input type="number" placeholder="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "100%", padding: "13px 48px 13px 14px", border: `2px solid ${T.border}`, borderRadius: "12px", fontSize: "18px", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
+            <input type="number" inputMode="numeric" placeholder="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "100%", padding: "13px 48px 13px 14px", border: `2px solid ${T.border}`, borderRadius: "12px", fontSize: "18px", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
             <span style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", color: T.sub, fontWeight: 600 }}>원</span>
           </div>
         </div>
@@ -429,8 +439,8 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
             ))}
             {form.cardDetails.length > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 2px", fontWeight: 700, fontSize: "13px", borderTop: `1.5px solid #7dd3fc`, marginTop: "3px" }}><span>소계</span><span style={{ color: T.exp }}>{fmt(form.cardDetails.reduce((s, d) => s + d.amount, 0))}</span></div>}
             <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
-              <input placeholder="항목명" value={cdForm.name} onChange={e => setCdForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
-              <input type="number" placeholder="금액" value={cdForm.amount} onChange={e => setCdForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "90px", padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+              <input placeholder="항목명" value={cdForm.name} onChange={e => setCdForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
+              <input type="number" inputMode="numeric" placeholder="금액" value={cdForm.amount} onChange={e => setCdForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "90px", padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
               <button onClick={addCd} style={{ padding: "8px 12px", borderRadius: "8px", border: "none", background: "#0284c7", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>추가</button>
             </div>
           </Card>
@@ -447,12 +457,12 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
           <Card style={{ background: "#fffbeb", border: `1.5px solid #fde68a`, padding: "12px", marginBottom: "10px" }}>
             <div style={{ fontSize: "13px", fontWeight: 700, color: "#92400e", marginBottom: "8px" }}>할부 정보</div>
             <div style={{ display: "flex", gap: "8px", marginBottom: "6px" }}>
-              <Inp label="총 금액" type="number" placeholder="0" value={instForm.totalAmount} onChange={e => setInstForm(f => ({ ...f, totalAmount: e.target.value }))} style={{ marginBottom: 0 }} />
-              <Inp label="할부 개월" type="number" placeholder="12" value={instForm.totalMonths} onChange={e => setInstForm(f => ({ ...f, totalMonths: e.target.value }))} style={{ marginBottom: 0 }} />
+              <Inp label="총 금액" type="number" inputMode="numeric" placeholder="0" value={instForm.totalAmount} onChange={e => setInstForm(f => ({ ...f, totalAmount: e.target.value }))} style={{ marginBottom: 0 }} />
+              <Inp label="할부 개월" type="number" inputMode="numeric" placeholder="12" value={instForm.totalMonths} onChange={e => setInstForm(f => ({ ...f, totalMonths: e.target.value }))} style={{ marginBottom: 0 }} />
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <Inp label="월 납입액" type="number" placeholder="자동계산" value={instForm.monthlyAmount || (instForm.totalAmount && instForm.totalMonths ? Math.round(Number(instForm.totalAmount) / Number(instForm.totalMonths)) : "")} onChange={e => setInstForm(f => ({ ...f, monthlyAmount: e.target.value }))} style={{ marginBottom: 0 }} />
-              <Inp label="결제일" type="number" placeholder="15" value={instForm.payDay} onChange={e => setInstForm(f => ({ ...f, payDay: e.target.value }))} style={{ marginBottom: 0 }} />
+              <Inp label="월 납입액" type="number" inputMode="numeric" placeholder="자동계산" value={instForm.monthlyAmount || (instForm.totalAmount && instForm.totalMonths ? Math.round(Number(instForm.totalAmount) / Number(instForm.totalMonths)) : "")} onChange={e => setInstForm(f => ({ ...f, monthlyAmount: e.target.value }))} style={{ marginBottom: 0 }} />
+              <Inp label="결제일" type="number" inputMode="numeric" placeholder="15" value={instForm.payDay} onChange={e => setInstForm(f => ({ ...f, payDay: e.target.value }))} style={{ marginBottom: 0 }} />
             </div>
           </Card>
         )}
@@ -463,7 +473,7 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
   };
 
   // ─── LIST ──────────────────────────────────────────────
-  const ListTab = () => {
+  const renderList = () => {
     const allItems = [...monthTx, ...fixedAsTx];
     const filtered = filterPerson === "all" ? allItems : allItems.filter(t => t.person === filterPerson || t.person === "shared");
     const sorted = [...filtered].sort((a, b) => {
@@ -473,7 +483,7 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
     });
     return (
       <div>
-        <MonthSel />
+        {renderMonthSel()}
         <div style={{ display: "flex", gap: "7px", marginBottom: "14px", flexWrap: "wrap" }}>
           <Chip sel={filterPerson === "all"} onClick={() => setFilterPerson("all")}>전체</Chip>
           <Chip sel={filterPerson === "p1"} onClick={() => setFilterPerson("p1")}>{gn("p1")}</Chip>
@@ -482,14 +492,14 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
         </div>
         <Card style={{ padding: "6px 14px" }}>
           {sorted.length === 0 ? <div style={{ textAlign: "center", padding: "36px 0", color: T.sub, fontSize: "13px" }}>내역 없음</div>
-            : sorted.map(t => <TxRow key={t.id} t={t} />)}
+            : sorted.map(t => renderTxRow(t, false))}
         </Card>
       </div>
     );
   };
 
   // ─── STATS ─────────────────────────────────────────────
-  const StatsTab = () => {
+  const renderStats = () => {
     const allExpenses = [...monthTx, ...fixedAsTx];
     const totalInc = monthTx.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
     const totalExp = allExpenses.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
@@ -501,7 +511,7 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
 
     return (
       <div>
-        <MonthSel />
+        {renderMonthSel()}
         <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
           <Card style={{ flex: 1, textAlign: "center", padding: "14px" }}><div style={{ fontSize: "11px", color: T.sub, marginBottom: "3px" }}>수입</div><div style={{ fontSize: "17px", fontWeight: 700, color: T.inc }}>{fmt(totalInc)}</div></Card>
           <Card style={{ flex: 1, textAlign: "center", padding: "14px" }}><div style={{ fontSize: "11px", color: T.sub, marginBottom: "3px" }}>지출</div><div style={{ fontSize: "17px", fontWeight: 700, color: T.exp }}>{fmt(totalExp)}</div></Card>
@@ -547,19 +557,19 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
   };
 
   // ─── WALLET ────────────────────────────────────────────
-  const WalletTab = () => (
+  const renderWallet = () => (
     <div>
       <div style={{ display: "flex", background: "#f1f5f9", borderRadius: "12px", padding: "4px", marginBottom: "18px" }}>
         {[{ k: "loan", l: "대출" }, { k: "invest", l: "투자" }].map(({ k, l }) => (
           <button key={k} onClick={() => setWalletTab(k)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", cursor: "pointer", background: walletTab === k ? (k === "loan" ? T.loan : T.invest) : "transparent", color: walletTab === k ? "#fff" : T.sub, fontWeight: 600, fontSize: "14px" }}>{l}</button>
         ))}
       </div>
-      {walletTab === "loan" && <LoanSection />}
-      {walletTab === "invest" && <InvestSection />}
+      {walletTab === "loan" && renderLoans()}
+      {walletTab === "invest" && renderInvest()}
     </div>
   );
 
-  const LoanSection = () => {
+  const renderLoans = () => {
     const totalDebt = loans.reduce((s, l) => s + l.totalAmount, 0);
     const totalPaid = loans.reduce((s, l) => s + l.payments.reduce((ss, p) => ss + p.amount, 0), 0);
     return (
@@ -607,11 +617,11 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
                   <div style={{ marginTop: "10px", padding: "12px", background: "#f0f9ff", borderRadius: "10px" }}>
                     <div style={{ fontSize: "12px", fontWeight: 600, color: T.sub, marginBottom: "6px" }}>상환 추가</div>
                     <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
-                      <input type="number" placeholder="금액" value={paymentForm.amount} onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
-                      <input type="date" value={paymentForm.date} onChange={e => setPaymentForm(f => ({ ...f, date: e.target.value }))} style={{ padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                      <input type="number" inputMode="numeric" placeholder="금액" value={paymentForm.amount} onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
+                      <input type="date" value={paymentForm.date} onChange={e => setPaymentForm(f => ({ ...f, date: e.target.value }))} style={{ padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
                     </div>
                     <div style={{ display: "flex", gap: "6px" }}>
-                      <input placeholder="메모" value={paymentForm.memo} onChange={e => setPaymentForm(f => ({ ...f, memo: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                      <input placeholder="메모" value={paymentForm.memo} onChange={e => setPaymentForm(f => ({ ...f, memo: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #bae6fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
                       <button onClick={() => addPayment(l.id)} style={{ padding: "8px 14px", borderRadius: "8px", border: "none", background: T.loan, color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>추가</button>
                     </div>
                   </div>
@@ -628,7 +638,7 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
             <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
               {["p1", "p2"].map(p => <button key={p} onClick={() => setLoanForm(f => ({ ...f, person: p }))} style={{ flex: 1, padding: "10px", borderRadius: "12px", border: `2px solid ${loanForm.person === p ? T.loan : T.border}`, background: loanForm.person === p ? "#e0f2fe" : "transparent", color: loanForm.person === p ? T.loan : T.text, fontWeight: 600, cursor: "pointer" }}>{gn(p)}</button>)}
             </div>
-            <Inp label="대출 총액" type="number" placeholder="100,000,000" value={loanForm.totalAmount} onChange={e => setLoanForm(f => ({ ...f, totalAmount: e.target.value }))} />
+            <Inp label="대출 총액" type="number" inputMode="numeric" placeholder="100,000,000" value={loanForm.totalAmount} onChange={e => setLoanForm(f => ({ ...f, totalAmount: e.target.value }))} />
             <div style={{ display: "flex", gap: "8px" }}>
               <Btn outline onClick={() => setShowAddLoan(false)} style={{ flex: 1 }}>취소</Btn>
               <Btn onClick={addLoan} color={T.loan} style={{ flex: 1 }}>등록</Btn>
@@ -639,7 +649,7 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
     );
   };
 
-  const InvestSection = () => {
+  const renderInvest = () => {
     const byPerson = { p1: 0, p2: 0 };
     investments.forEach(inv => { const total = inv.records.reduce((s, r) => s + r.amount, 0); byPerson[inv.person] = (byPerson[inv.person] || 0) + total; });
     const totalInvest = byPerson.p1 + byPerson.p2;
@@ -681,11 +691,11 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
                   <div style={{ marginTop: "8px", padding: "12px", background: "#f5f3ff", borderRadius: "10px" }}>
                     <div style={{ fontSize: "12px", fontWeight: 600, color: T.sub, marginBottom: "6px" }}>투자 추가</div>
                     <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
-                      <input type="number" placeholder="금액" value={investRecForm.amount} onChange={e => setInvestRecForm(f => ({ ...f, amount: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #c4b5fd`, borderRadius: "8px", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
-                      <input type="date" value={investRecForm.date} onChange={e => setInvestRecForm(f => ({ ...f, date: e.target.value }))} style={{ padding: "8px 10px", border: `1.5px solid #c4b5fd`, borderRadius: "8px", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                      <input type="number" inputMode="numeric" placeholder="금액" value={investRecForm.amount} onChange={e => setInvestRecForm(f => ({ ...f, amount: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #c4b5fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
+                      <input type="date" value={investRecForm.date} onChange={e => setInvestRecForm(f => ({ ...f, date: e.target.value }))} style={{ padding: "8px 10px", border: `1.5px solid #c4b5fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
                     </div>
                     <div style={{ display: "flex", gap: "6px" }}>
-                      <input placeholder="메모" value={investRecForm.memo} onChange={e => setInvestRecForm(f => ({ ...f, memo: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #c4b5fd`, borderRadius: "8px", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                      <input placeholder="메모" value={investRecForm.memo} onChange={e => setInvestRecForm(f => ({ ...f, memo: e.target.value }))} style={{ flex: 1, padding: "8px 10px", border: `1.5px solid #c4b5fd`, borderRadius: "8px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
                       <button onClick={() => addInvestRec(inv.id)} style={{ padding: "8px 14px", borderRadius: "8px", border: "none", background: T.invest, color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>추가</button>
                     </div>
                   </div>
@@ -712,13 +722,13 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
     );
   };
 
-  // ─── Fixed Setup Modal ─────────────────────────────────
-  const FixedModal = () => {
+  // ─── Modals ────────────────────────────────────────────
+  const renderFixedModal = () => {
     if (!showFixedSetup) return null;
     const total = fixedList.reduce((s, f) => s + f.amount, 0);
     return (
       <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-        <div style={{ width: "100%", maxWidth: "420px", background: T.card, borderRadius: "20px 20px 0 0", padding: "22px 18px", maxHeight: "80vh", overflowY: "auto" }}>
+        <div style={{ width: "100%", maxWidth: "680px", background: T.card, borderRadius: "20px 20px 0 0", padding: "22px 18px", maxHeight: "80vh", overflowY: "auto" }}>
           <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "14px" }}>고정 지출 편집</div>
           {fixedList.map((f, i) => (
             <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "9px 0", borderBottom: i < fixedList.length - 1 ? `1px solid ${T.border}` : "none" }}>
@@ -737,8 +747,8 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
           <div style={{ marginTop: "14px", padding: "14px", background: "#f8fafc", borderRadius: "12px" }}>
             <div style={{ fontSize: "12px", fontWeight: 600, color: T.sub, marginBottom: "8px" }}>항목 추가</div>
             <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
-              <input placeholder="항목명" value={fixForm.name} onChange={e => setFixForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 1, padding: "9px 10px", border: `1.5px solid ${T.border}`, borderRadius: "9px", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
-              <input type="number" placeholder="금액" value={fixForm.amount} onChange={e => setFixForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "100px", padding: "9px 10px", border: `1.5px solid ${T.border}`, borderRadius: "9px", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+              <input placeholder="항목명" value={fixForm.name} onChange={e => setFixForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 1, padding: "9px 10px", border: `1.5px solid ${T.border}`, borderRadius: "9px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
+              <input type="number" inputMode="numeric" placeholder="금액" value={fixForm.amount} onChange={e => setFixForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "100px", padding: "9px 10px", border: `1.5px solid ${T.border}`, borderRadius: "9px", fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: "8px" }}>
               <div style={{ fontSize: "11px", color: T.sub, marginBottom: "4px" }}>카테고리</div>
@@ -764,52 +774,53 @@ function CoupleBudgetApp({ initialData, onDataChange }) {
     );
   };
 
-  // ─── Settings Modal ────────────────────────────────────
-  const SettingsModal = () => (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-      <Card style={{ width: "100%", maxWidth: "360px", margin: 0 }}>
-        <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "18px" }}>이름 설정</div>
-        <Inp label="나의 이름" value={editNames.p1} onChange={e => setEditNames(n => ({ ...n, p1: e.target.value }))} placeholder="이름" />
-        <Inp label="파트너 이름" value={editNames.p2} onChange={e => setEditNames(n => ({ ...n, p2: e.target.value }))} placeholder="이름" />
-        <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
-          <Btn outline onClick={() => setShowSettings(false)} style={{ flex: 1 }}>취소</Btn>
-          <Btn onClick={saveNames} style={{ flex: 1 }}>저장</Btn>
-        </div>
-      </Card>
-    </div>
-  );
+  const renderSettingsModal = () => {
+    if (!showSettings) return null;
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+        <Card style={{ width: "100%", maxWidth: "360px", margin: 0 }}>
+          <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "18px" }}>이름 설정</div>
+          <Inp label="나의 이름" value={editNames.p1} onChange={e => setEditNames(n => ({ ...n, p1: e.target.value }))} placeholder="이름" />
+          <Inp label="파트너 이름" value={editNames.p2} onChange={e => setEditNames(n => ({ ...n, p2: e.target.value }))} placeholder="이름" />
+          <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+            <Btn outline onClick={() => setShowSettings(false)} style={{ flex: 1 }}>취소</Btn>
+            <Btn onClick={saveNames} style={{ flex: 1 }}>저장</Btn>
+          </div>
+        </Card>
+      </div>
+    );
+  };
 
-  const tabTitle = { home: `${gn("p1")} & ${gn("p2")}의 가계부 💜`, add: "새 내역 추가", list: "전체 내역", stats: "지출 통계", wallet: "대출 / 투자" };
+  const tabTitle = { home: `${gn("p1")} & ${gn("p2")}의 머니로그 💜`, add: "새 내역 추가", list: "전체 내역", stats: "지출 통계", wallet: "대출 / 투자" };
 
   return (
-    <div style={{ maxWidth: "420px", margin: "0 auto", minHeight: "100vh", background: T.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", color: T.text, display: "flex", flexDirection: "column" }}>
+    <div className="ml-app" style={{ margin: "0 auto", minHeight: "100vh", background: T.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", color: T.text, display: "flex", flexDirection: "column" }}>
+      <ResponsiveStyles />
       <div style={{ padding: "13px 18px 9px", background: "linear-gradient(135deg, #6366f1, #818cf8)", color: "#fff", position: "sticky", top: 0, zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ fontSize: "10px", opacity: 0.8, letterSpacing: "1px", textTransform: "uppercase" }}>Couple Budget</div>
-          <div style={{ fontSize: "17px", fontWeight: 800, marginTop: "1px" }}>{tabTitle[tab]}</div>
+          <div className="ml-header-sub" style={{ opacity: 0.8, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 600 }}>moneylog</div>
+          <div className="ml-header-title" style={{ fontWeight: 800, marginTop: "1px" }}>{tabTitle[tab]}</div>
         </div>
         <button onClick={() => { setEditNames({ ...names }); setShowSettings(true); }} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "10px", padding: "7px", cursor: "pointer", color: "#fff" }}>{I.settings}</button>
       </div>
       <div style={{ flex: 1, padding: "14px 14px 88px", overflowY: "auto" }}>
-        {tab === "home" && <HomeTab />}
-        {tab === "add" && <AddTab />}
-        {tab === "list" && <ListTab />}
-        {tab === "stats" && <StatsTab />}
-        {tab === "wallet" && <WalletTab />}
+        {tab === "home" && renderHome()}
+        {tab === "add" && renderAdd()}
+        {tab === "list" && renderList()}
+        {tab === "stats" && renderStats()}
+        {tab === "wallet" && renderWallet()}
       </div>
-      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: "420px", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)", borderTop: `1px solid ${T.border}`, display: "flex", padding: "4px 4px 8px", zIndex: 10 }}>
+      <div className="ml-nav" style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)", borderTop: `1px solid ${T.border}`, display: "flex", padding: "4px 4px 8px", zIndex: 10 }}>
         {[{ id: "home", icon: I.home, l: "홈" }, { id: "add", icon: I.plus, l: "추가" }, { id: "list", icon: I.list, l: "내역" }, { id: "stats", icon: I.chart, l: "통계" }, { id: "wallet", icon: I.wallet, l: "대출/투자" }].map(({ id: tid, icon, l }) => (
           <button key={tid} onClick={() => setTab(tid)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", padding: "5px 0", background: "none", border: "none", cursor: "pointer", color: tab === tid ? T.primary : T.sub, fontWeight: tab === tid ? 700 : 400, fontSize: "10px" }}>{icon}{l}</button>
         ))}
       </div>
-      {showSettings && <SettingsModal />}
-      {showFixedSetup && <FixedModal />}
+      {renderSettingsModal()}
+      {renderFixedModal()}
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Main App with PIN Auth + Firebase Persistence
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem("budget_auth") === "true");
@@ -817,21 +828,13 @@ export default function App() {
   const [initialData, setInitialData] = useState(null);
 
   useEffect(() => {
-    if (!authed) {
-      setLoading(false);
-      return;
-    }
-    loadData().then(data => {
-      setInitialData(data || DEFAULT_DATA);
-      setLoading(false);
-    });
+    if (!authed) { setLoading(false); return; }
+    loadData().then(data => { setInitialData(data || DEFAULT_DATA); setLoading(false); });
   }, [authed]);
 
-  const handleDataChange = useCallback((data) => {
-    saveData(data);
-  }, []);
+  const handleDataChange = useCallback((data) => { saveData(data); }, []);
 
   if (!authed) return <PinScreen onSuccess={() => { setAuthed(true); setLoading(true); loadData().then(data => { setInitialData(data || DEFAULT_DATA); setLoading(false); }); }} />;
   if (loading || !initialData) return <LoadingScreen />;
-  return <CoupleBudgetApp initialData={initialData} onDataChange={handleDataChange} />;
+  return <MoneyLogApp initialData={initialData} onDataChange={handleDataChange} />;
 }
