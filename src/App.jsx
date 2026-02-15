@@ -15,7 +15,7 @@ function PinScreen({ onSuccess }) {
       setError(false);
       if (newPin.length === correctPin.length) {
         setTimeout(() => {
-          if (newPin === correctPin) { sessionStorage.setItem("budget_auth", "true"); sessionStorage.setItem("budget_pin", correctPin); setEncryptionKey(correctPin); onSuccess(); }
+          if (newPin === correctPin) { setEncryptionKey(correctPin); onSuccess(); }
           else { setError(true); setShake(true); setTimeout(() => setShake(false), 500); setPin(""); }
         }, 150);
       }
@@ -913,16 +913,34 @@ function MoneyLogApp({ initialData, onDataChange }) {
 
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
-  const [authed, setAuthed] = useState(() => {
-    const isAuthed = sessionStorage.getItem("budget_auth") === "true";
-    if (isAuthed) {
-      const savedPin = sessionStorage.getItem("budget_pin");
-      if (savedPin) setEncryptionKey(savedPin);
-    }
-    return isAuthed;
-  });
-  const [loading, setLoading] = useState(true);
+  // 새로고침 시 항상 PIN 입력 (sessionStorage 사용 안 함)
+  const [authed, setAuthed] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [initialData, setInitialData] = useState(null);
+
+  // 5분 자동 잠금 타이머
+  const timerRef = useRef(null);
+  const LOCK_TIMEOUT = 5 * 60 * 1000; // 5분
+
+  const resetTimer = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setAuthed(false);
+      setInitialData(null);
+    }, LOCK_TIMEOUT);
+  }, []);
+
+  useEffect(() => {
+    if (!authed) { if (timerRef.current) clearTimeout(timerRef.current); return; }
+    resetTimer();
+    const events = ["mousedown", "touchstart", "keydown", "scroll"];
+    events.forEach(e => window.addEventListener(e, resetTimer));
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+    };
+  }, [authed, resetTimer]);
+
   useEffect(() => { if (!authed) { setLoading(false); return; } loadData().then(data => { setInitialData(data || DEFAULT_DATA); setLoading(false); }); }, [authed]);
   const handleDataChange = useCallback((data) => { saveData(data); }, []);
   if (!authed) return <PinScreen onSuccess={() => { setAuthed(true); setLoading(true); loadData().then(data => { setInitialData(data || DEFAULT_DATA); setLoading(false); }); }} />;
