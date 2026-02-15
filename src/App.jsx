@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { loadData, saveData } from "./firebase.js";
+import { loadData, saveData, setEncryptionKey } from "./firebase.js";
 
 // ─── PIN Auth Screen ────────────────────────────────────────
 function PinScreen({ onSuccess }) {
@@ -15,7 +15,7 @@ function PinScreen({ onSuccess }) {
       setError(false);
       if (newPin.length === correctPin.length) {
         setTimeout(() => {
-          if (newPin === correctPin) { sessionStorage.setItem("budget_auth", "true"); onSuccess(); }
+          if (newPin === correctPin) { sessionStorage.setItem("budget_auth", "true"); sessionStorage.setItem("budget_pin", correctPin); setEncryptionKey(correctPin); onSuccess(); }
           else { setError(true); setShake(true); setTimeout(() => setShake(false), 500); setPin(""); }
         }, 150);
       }
@@ -913,7 +913,14 @@ function MoneyLogApp({ initialData, onDataChange }) {
 
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem("budget_auth") === "true");
+  const [authed, setAuthed] = useState(() => {
+    const isAuthed = sessionStorage.getItem("budget_auth") === "true";
+    if (isAuthed) {
+      const savedPin = sessionStorage.getItem("budget_pin");
+      if (savedPin) setEncryptionKey(savedPin);
+    }
+    return isAuthed;
+  });
   const [loading, setLoading] = useState(true);
   const [initialData, setInitialData] = useState(null);
   useEffect(() => { if (!authed) { setLoading(false); return; } loadData().then(data => { setInitialData(data || DEFAULT_DATA); setLoading(false); }); }, [authed]);
