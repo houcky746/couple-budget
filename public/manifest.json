@@ -1,6 +1,6 @@
 {
-  "name": "커플 가계부",
-  "short_name": "가계부",
+  "name": "머니로그",
+  "short_name": "머니로그",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
